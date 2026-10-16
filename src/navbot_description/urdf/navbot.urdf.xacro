@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<robot name="navbot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:arg name="publish_odom_tf" default="false"/>
+  <xacro:arg name="lidar_visualize" default="false"/>
+  <xacro:arg name="enable_camera" default="true"/>
+  <xacro:arg name="enable_lidar" default="true"/>
+
+  <xacro:include filename="navbot_constants.xacro"/>
+  <xacro:include filename="navbot_base.xacro"/>
+  <xacro:include filename="navbot_sensors.xacro"/>
+  <xacro:include filename="navbot_drivetrain.xacro"/>
+
+</robot>

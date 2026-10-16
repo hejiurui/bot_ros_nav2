@@ -1,0 +1,170 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <link name="scanner_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${lidar_radius}" length="${lidar_hgt}"/>
+      </geometry>
+      <material name="navbot_accent"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="${lidar_radius}" length="${lidar_hgt}"/>
+      </geometry>
+    </collision>
+    <xacro:cyl_inertia m="${lidar_mass}" r="${lidar_radius}" l="${lidar_hgt}"/>
+  </link>
+
+  <joint name="scanner_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="scanner_link"/>
+    <origin xyz="${lidar_x} 0 ${lidar_z_rel}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="scanner_frame"/>
+
+  <joint name="scanner_beam_joint" type="fixed">
+    <parent link="scanner_link"/>
+    <child link="scanner_frame"/>
+    <origin xyz="0 0 ${laser_z_off}" rpy="0 0 0"/>
+  </joint>
+
+  <gazebo reference="scanner_frame">
+    <xacro:if value="$(arg enable_lidar)">
+    <sensor name="navbot_scanner" type="ray">
+      <pose>0 0 0 0 0 0</pose>
+      <visualize>$(arg lidar_visualize)</visualize>
+      <update_rate>10</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>540</samples>
+            <resolution>1</resolution>
+            <min_angle>${-157.0 * pi / 180.0}</min_angle>
+            <max_angle>${157.0 * pi / 180.0}</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.15</min>
+          <max>8.0</max>
+          <resolution>0.01</resolution>
+        </range>
+        <camera>
+          <image>
+            <width>540</width>
+            <height>1</height>
+            <format>R32F</format>
+          </image>
+          <near_clip_dist>0.15</near_clip_dist>
+          <far_clip_dist>8.0</far_clip_dist>
+        </camera>
+        <noise>
+          <type>gaussian</type>
+          <mean>0.0</mean>
+          <stddev>0.01</stddev>
+        </noise>
+      </ray>
+      <plugin name="scanner_driver" filename="libgazebo_ros_ray_sensor.so">
+        <ros>
+          <argument>~/out:=/scan</argument>
+        </ros>
+        <output_type>sensor_msgs/LaserScan</output_type>
+        <frame_name>scanner_frame</frame_name>
+      </plugin>
+    </sensor>
+    </xacro:if>
+  </gazebo>
+
+  <link name="camera_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${camera_len} ${camera_wid} ${camera_hgt}"/>
+      </geometry>
+      <material name="navbot_steel"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${camera_len} ${camera_wid} ${camera_hgt}"/>
+      </geometry>
+    </collision>
+    <xacro:box_inertia m="${camera_mass}" x="${camera_len}" y="${camera_wid}" z="${camera_hgt}"/>
+  </link>
+
+  <joint name="camera_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_link"/>
+    <origin xyz="${camera_x} 0 ${camera_z_rel}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="camera_optical_frame"/>
+
+  <joint name="camera_optical_joint" type="fixed">
+    <parent link="camera_link"/>
+    <child link="camera_optical_frame"/>
+    <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+  </joint>
+
+  <gazebo reference="camera_link">
+    <material>Gazebo/Grey</material>
+    <xacro:if value="$(arg enable_camera)">
+      <sensor name="navbot_camera" type="camera">
+        <pose>0 0 0 0 0 0</pose>
+        <visualize>false</visualize>
+        <update_rate>15</update_rate>
+        <camera>
+          <horizontal_fov>${70 * pi / 180.0}</horizontal_fov>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.05</near>
+            <far>20.0</far>
+          </clip>
+        </camera>
+        <plugin name="camera_driver" filename="libgazebo_ros_camera.so">
+          <frame_name>camera_optical_frame</frame_name>
+        </plugin>
+      </sensor>
+    </xacro:if>
+  </gazebo>
+
+  <link name="imu_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${imu_size} ${imu_size} 0.006"/>
+      </geometry>
+      <material name="navbot_accent"/>
+    </visual>
+    <xacro:box_inertia m="${imu_mass}" x="${imu_size}" y="${imu_size}" z="0.006"/>
+  </link>
+
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 ${imu_z_rel}" rpy="0 0 0"/>
+  </joint>
+
+  <gazebo reference="imu_link">
+    <sensor name="navbot_imu" type="imu">
+      <pose>0 0 0 0 0 0</pose>
+      <visualize>false</visualize>
+      <update_rate>200</update_rate>
+      <plugin name="imu_driver" filename="libgazebo_ros_imu_sensor.so">
+        <ros>
+          <argument>~/out:=/imu/data</argument>
+        </ros>
+        <frame_name>imu_link</frame_name>
+        <initialOrientationAsReference>false</initialOrientationAsReference>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+</robot>

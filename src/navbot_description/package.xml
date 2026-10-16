@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>navbot_description</name>
+  <version>1.0.0</version>
+  <description>
+    navbot 差速移动机器人模型：全 primitive 几何（底盘、双驱动轮、前万向球、
+    2D 激光雷达、相机、IMU），惯量由几何公式在 xacro 内推导，不含任何外部网格文件。
+  </description>
+  <maintainer email="hejiurui@users.noreply.github.com">hejiurui</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>gazebo_ros</exec_depend>
+  <exec_depend>gazebo_plugins</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

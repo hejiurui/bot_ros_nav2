@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>navbot_patrol</name>
+  <version>1.0.0</version>
+  <description>
+    navbot 巡检任务层：基于 nav2_simple_commander 的多航点巡航节点，
+    航点、超时、初始位姿由 config/waypoints.yaml 提供，支持总超时取消与多轮巡检。
+  </description>
+  <maintainer email="hejiurui@users.noreply.github.com">hejiurui</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav2_simple_commander</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

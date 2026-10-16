@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>navbot_gazebo</name>
+  <version>1.0.0</version>
+  <description>
+    navbot 的 Gazebo 场景与导航配置：实验室世界、Nav2 参数（按模型几何推导）、
+    robot_localization EKF 与 slam_toolbox 参数，以及 sim/slam/navigate/verify 四条 launch 链。
+  </description>
+  <maintainer email="hejiurui@users.noreply.github.com">hejiurui</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>navbot_description</exec_depend>
+  <exec_depend>nav2_bringup</exec_depend>
+  <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>gazebo_ros</exec_depend>
+  <exec_depend>gazebo_ros_pkgs</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>teleop_twist_keyboard</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -1,0 +1,111 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Views
+    Name: Views
+  - Class: nav2_rviz_plugins/Navigation 2
+    Name: Navigation 2
+Visualization Manager:
+  Class: ""
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: map
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+    - Class: rviz_default_plugins/SetInitialPose
+      Topic:
+        Value: /initialpose
+    - Class: rviz_default_plugins/SetGoal
+      Topic:
+        Value: /goal_pose
+    - Class: rviz_default_plugins/PublishPoint
+      Single click: true
+      Topic:
+        Value: /clicked_point
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 1
+      Plane Cell Count: 20
+    - Class: rviz_default_plugins/RobotModel
+      Name: RobotModel
+      Enabled: true
+      Description Topic:
+        Value: /robot_description
+      Visual Enabled: true
+    - Class: rviz_default_plugins/LaserScan
+      Name: LaserScan
+      Enabled: true
+      Topic:
+        Value: /scan
+        Reliability: Best Effort
+      Size (m): 0.03
+      Color Transformer: FlatColor
+      Color: 220; 40; 40
+    - Class: rviz_default_plugins/Map
+      Name: Static Map
+      Enabled: true
+      Topic:
+        Value: /map
+        Durability: Transient Local
+      Update Topic:
+        Value: /map_updates
+        Durability: Transient Local
+      Color Scheme: map
+      Alpha: 0.35
+    - Class: rviz_default_plugins/Map
+      Name: Global Costmap
+      Enabled: true
+      Topic:
+        Value: /global_costmap/costmap
+        Durability: Transient Local
+      Update Topic:
+        Value: /global_costmap/costmap_updates
+        Durability: Transient Local
+      Color Scheme: costmap
+      Alpha: 0.3
+    - Class: rviz_default_plugins/Map
+      Name: Local Costmap
+      Enabled: true
+      Topic:
+        Value: /local_costmap/costmap
+        Durability: Transient Local
+      Update Topic:
+        Value: /local_costmap/costmap_updates
+        Durability: Transient Local
+      Color Scheme: costmap
+      Alpha: 0.3
+    - Class: rviz_default_plugins/Path
+      Name: Global Plan
+      Enabled: true
+      Topic:
+        Value: /plan
+      Color: 0; 200; 80
+      Alpha: 1
+    - Class: rviz_default_plugins/Path
+      Name: Local Plan
+      Enabled: true
+      Topic:
+        Value: /local_plan
+      Color: 255; 120; 0
+      Alpha: 1
+    - Class: rviz_default_plugins/Pose
+      Name: Goal Pose
+      Enabled: true
+      Topic:
+        Value: /goal_pose
+      Color: 255; 0; 0
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: true
+      Show Arrows: true
+      Show Axes: true
+      Marker Scale: 0.3
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Scale: 30
+      Target Frame: <Fixed Frame>

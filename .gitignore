@@ -1,0 +1,11 @@
+build/
+install/
+log/
+.logs/
+__pycache__/
+*.pyc
+*.pyo
+.vscode/
+.idea/
+.probe*
+src/navbot_gazebo/maps/*.pgm.tmp

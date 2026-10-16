@@ -1,0 +1,95 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:property name="chassis_len"  value="0.320"/>
+  <xacro:property name="chassis_wid"  value="0.240"/>
+  <xacro:property name="chassis_hgt"  value="0.060"/>
+  <xacro:property name="chassis_mass" value="1.80"/>
+
+  <xacro:property name="wheel_radius" value="0.036"/>
+  <xacro:property name="wheel_width"  value="0.024"/>
+  <xacro:property name="wheel_mass"   value="0.120"/>
+  <xacro:property name="wheel_dia"    value="${2 * wheel_radius}"/>
+
+  <xacro:property name="track_width"  value="0.196"/>
+  <xacro:property name="axle_x"       value="-0.040"/>
+  <xacro:property name="base_z"       value="0.065"/>
+  <xacro:property name="wheel_z_rel"  value="${wheel_radius - base_z}"/>
+  <xacro:property name="wheel_y_rel"  value="${track_width / 2}"/>
+
+  <xacro:property name="caster_radius" value="0.018"/>
+  <xacro:property name="caster_mass"   value="0.030"/>
+  <xacro:property name="caster_x"      value="0.120"/>
+  <xacro:property name="caster_z_rel"  value="${caster_radius - base_z}"/>
+
+  <xacro:property name="lidar_radius" value="0.035"/>
+  <xacro:property name="lidar_hgt"    value="0.042"/>
+  <xacro:property name="lidar_mass"   value="0.100"/>
+  <xacro:property name="lidar_x"      value="0.060"/>
+  <xacro:property name="lidar_z"      value="0.121"/>
+  <xacro:property name="lidar_z_rel"  value="${lidar_z - base_z}"/>
+  <xacro:property name="laser_z_off"  value="0.008"/>
+
+  <xacro:property name="camera_len"  value="0.090"/>
+  <xacro:property name="camera_wid"  value="0.025"/>
+  <xacro:property name="camera_hgt"  value="0.025"/>
+  <xacro:property name="camera_mass" value="0.060"/>
+  <xacro:property name="camera_x"    value="0.160"/>
+  <xacro:property name="camera_z"    value="0.110"/>
+  <xacro:property name="camera_z_rel" value="${camera_z - base_z}"/>
+
+  <xacro:property name="imu_size"  value="0.020"/>
+  <xacro:property name="imu_mass"  value="0.005"/>
+  <xacro:property name="imu_z"     value="0.045"/>
+  <xacro:property name="imu_z_rel" value="${imu_z - base_z}"/>
+
+  <xacro:property name="total_mass"
+    value="${chassis_mass + 2*wheel_mass + caster_mass + lidar_mass + camera_mass + imu_mass}"/>
+
+  <xacro:property name="chassis_circumradius"
+    value="${sqrt(max((chassis_len/2 + camera_len)**2, (chassis_len/2)**2 + (chassis_wid/2)**2))}"/>
+
+  <material name="navbot_dark">
+    <color rgba="0.16 0.18 0.20 1.0"/>
+  </material>
+  <material name="navbot_accent">
+    <color rgba="0.85 0.45 0.10 1.0"/>
+  </material>
+  <material name="navbot_steel">
+    <color rgba="0.62 0.65 0.68 1.0"/>
+  </material>
+  <material name="navbot_black_rubber">
+    <color rgba="0.10 0.10 0.10 1.0"/>
+  </material>
+
+  <xacro:macro name="box_inertia" params="m x y z">
+    <inertial>
+      <origin xyz="0 0 0"/>
+      <mass value="${m}"/>
+      <inertia ixx="${m/12*(y*y + z*z)}" ixy="0" ixz="0"
+               iyy="${m/12*(x*x + z*z)}" iyz="0"
+               izz="${m/12*(x*x + y*y)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="cyl_inertia" params="m r l">
+    <inertial>
+      <origin xyz="0 0 0"/>
+      <mass value="${m}"/>
+      <inertia ixx="${m*(3*r*r + l*l)/12}" ixy="0" ixz="0"
+               iyy="${m*(3*r*r + l*l)/12}" iyz="0"
+               izz="${0.5*m*r*r}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="sphere_inertia" params="m r">
+    <inertial>
+      <origin xyz="0 0 0"/>
+      <mass value="${m}"/>
+      <inertia ixx="${0.4*m*r*r}" ixy="0" ixz="0"
+               iyy="${0.4*m*r*r}" iyz="0"
+               izz="${0.4*m*r*r}"/>
+    </inertial>
+  </xacro:macro>
+
+</robot>

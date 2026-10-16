@@ -1,0 +1,57 @@
+initial_pose:
+  set: true
+  x: 0.0
+  y: 0.0
+  yaw_deg: 0.0
+
+task:
+  ready_timeout_sec: 30.0
+  timeout_sec: 420.0
+  log_period_sec: 3.0
+  loop: 1
+
+waypoints:
+  - name: start
+    x: 0.0
+    y: 0.0
+    yaw_deg: 0.0
+
+  - name: west_door
+    x: -3.0
+    y: 0.0
+    yaw_deg: 180.0
+
+  - name: west_north
+    x: -3.0
+    y: 3.0
+    yaw_deg: 90.0
+
+  - name: west_south
+    x: -2.6
+    y: -3.0
+    yaw_deg: -90.0
+
+  - name: corridor
+    x: 0.0
+    y: 0.0
+    yaw_deg: 0.0
+
+  - name: corridor_north
+    x: 0.0
+    y: 3.0
+    yaw_deg: 90.0
+
+  - name: east_door
+    x: 3.2
+    y: -0.6
+    yaw_deg: 0.0
+
+  - name: east_north
+    x: 3.2
+    y: 1.6
+    yaw_deg: 90.0
+
+  - name: return_home
+    x: 0.0
+    y: 0.0
+    yaw_deg: 0.0

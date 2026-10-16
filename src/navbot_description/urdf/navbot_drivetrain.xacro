@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <gazebo reference="base_link">
+    <material>Gazebo/BlueDark</material>
+    <mu1 value="0.05"/>
+    <mu2 value="0.05"/>
+    <kp value="1000000.0"/>
+    <kd value="100.0"/>
+  </gazebo>
+
+  <gazebo reference="caster_link">
+    <material>Gazebo/Chrome</material>
+    <mu1 value="0.0"/>
+    <mu2 value="0.0"/>
+    <kp value="1000000.0"/>
+    <kd value="100.0"/>
+    <minDepth value="0.0"/>
+  </gazebo>
+
+  <gazebo reference="left_wheel_link">
+    <material>Gazebo/Black</material>
+    <mu1 value="1.2"/>
+    <mu2 value="1.2"/>
+    <kp value="1000000.0"/>
+    <kd value="100.0"/>
+    <minDepth value="0.0"/>
+    <maxVel value="1.5"/>
+  </gazebo>
+
+  <gazebo reference="right_wheel_link">
+    <material>Gazebo/Black</material>
+    <mu1 value="1.2"/>
+    <mu2 value="1.2"/>
+    <kp value="1000000.0"/>
+    <kd value="100.0"/>
+    <minDepth value="0.0"/>
+    <maxVel value="1.5"/>
+  </gazebo>
+
+  <gazebo>
+    <plugin name="navbot_diff_drive" filename="libgazebo_ros_diff_drive.so">
+      <ros>
+        <remapping>odom:=/odom</remapping>
+        <remapping>cmd_vel:=/cmd_vel</remapping>
+      </ros>
+
+      <left_joint>left_wheel_joint</left_joint>
+      <right_joint>right_wheel_joint</right_joint>
+
+      <wheel_separation>${track_width}</wheel_separation>
+      <wheel_diameter>${wheel_dia}</wheel_diameter>
+
+      <max_wheel_torque>12.0</max_wheel_torque>
+      <max_wheel_acceleration>15.0</max_wheel_acceleration>
+
+      <odometry_frame>odom</odometry_frame>
+      <robot_base_frame>base_footprint</robot_base_frame>
+
+      <publish_odom>true</publish_odom>
+      <publish_wheel_tf>true</publish_wheel_tf>
+      <publish_odom_tf>$(arg publish_odom_tf)</publish_odom_tf>
+
+      <odometry_covariance_diagonal>
+        0.002, 0.002, 0.002, 0.002, 0.002, 0.02
+      </odometry_covariance_diagonal>
+    </plugin>
+  </gazebo>
+
+</robot>
