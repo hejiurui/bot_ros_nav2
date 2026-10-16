@@ -25,7 +25,6 @@ OCCUPIED = [
 
 LETHAL, FREE = 0, 254
 
-
 def raster(path_base):
     width = int(round((X_MAX - X_MIN) / RES))
     height = int(round((Y_MAX - Y_MIN) / RES))
@@ -59,7 +58,6 @@ def raster(path_base):
              100.0 * (1 - blocked / float(width * height))))
     print('[gen_map] 与 worlds/lab.world 的墙体/障碍坐标一一对应；改世界记得同步这里')
 
-
 def main():
     default = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                            'src', 'navbot_gazebo', 'maps', 'lab_map')
@@ -67,7 +65,6 @@ def main():
     ap.add_argument('-o', '--out', default=default)
     args = ap.parse_args()
     raster(args.out)
-
 
 if __name__ == '__main__':
     main()

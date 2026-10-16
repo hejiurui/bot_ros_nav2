@@ -13,15 +13,12 @@ from sensor_msgs.msg import Imu
 
 BEST_EFFORT = QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT)
 
-
 def quat_to_yaw(q):
     return math.atan2(2.0 * (q.w * q.z + q.x * q.y),
                       1.0 - 2.0 * (q.y * q.y + q.z * q.z))
 
-
 def stamp_sec(msg):
     return msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
-
 
 def unwrap(series):
     out, acc = [], 0.0
@@ -37,7 +34,6 @@ def unwrap(series):
         out.append(value - acc)
     return out
 
-
 class OdomChecker(Node):
     def __init__(self):
         super().__init__('verify_odometry')
@@ -52,7 +48,6 @@ class OdomChecker(Node):
 
     def _imu_cb(self, msg):
         self.imu = msg
-
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
@@ -129,7 +124,6 @@ def main(argv=None):
         return 0
     print('[verify] FAIL：k=%.3f，核对 wheel_separation 与轮心 y 坐标' % k)
     return 3
-
 
 if __name__ == '__main__':
     sys.exit(main())

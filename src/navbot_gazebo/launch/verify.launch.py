@@ -1,8 +1,3 @@
-"""里程计轮距标定：仿真与标定节点同属一个 launch 会话。
-
-    ros2 launch navbot_gazebo verify.launch.py
-    ros2 launch navbot_gazebo verify.launch.py duration:=4 wall_limit:=420
-"""
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -11,7 +6,6 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-
 
 def generate_launch_description():
     pkg_sim = get_package_share_directory('navbot_gazebo')

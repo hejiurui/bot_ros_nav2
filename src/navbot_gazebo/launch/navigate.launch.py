@@ -1,8 +1,3 @@
-"""自主导航 = 仿真底座 + AMCL 定位 + Nav2 导航栈。
-
-    ros2 launch navbot_gazebo navigate.launch.py
-    ros2 launch navbot_gazebo navigate.launch.py use_composition:=True
-"""
 import os
 import sys
 
@@ -12,7 +7,6 @@ from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchD
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
-
 def _has_package(name):
     try:
         get_package_share_directory(name)
@@ -20,16 +14,12 @@ def _has_package(name):
     except Exception:
         return False
 
-
 def _nav_bool(name, default='False'):
-    """nav2 的 launch 里有 PythonExpression(['not ', use_composition])，
-    值会被 eval()，小写 true 会变成变量名报 NameError，所以在生成期归一。"""
     for arg in sys.argv[1:]:
         if arg.startswith(name + ':='):
             value = arg.split(':=', 1)[1].strip().lower()
             return 'True' if value in ('true', '1', 'yes') else 'False'
     return default
-
 
 def generate_launch_description():
     pkg_sim = get_package_share_directory('navbot_gazebo')

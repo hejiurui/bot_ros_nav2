@@ -1,9 +1,3 @@
-"""建图 = 仿真底座 + slam_toolbox（复用 nav2_bringup 的 slam_launch）。
-
-    ros2 launch navbot_gazebo slam.launch.py
-    ros2 run teleop_twist_keyboard teleop_twist_keyboard
-    ./scripts/save_map.sh
-"""
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -12,14 +6,12 @@ from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchD
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
-
 def _has_package(name):
     try:
         get_package_share_directory(name)
         return True
     except Exception:
         return False
-
 
 def generate_launch_description():
     pkg_sim = get_package_share_directory('navbot_gazebo')

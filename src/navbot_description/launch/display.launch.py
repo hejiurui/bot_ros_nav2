@@ -1,7 +1,3 @@
-"""模型自检：只在 RViz 里看几何与 TF，不起仿真。
-
-    ros2 launch navbot_description display.launch.py
-"""
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -10,7 +6,6 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
-
 
 def generate_launch_description():
     pkg = get_package_share_directory('navbot_description')

@@ -1,9 +1,3 @@
-"""navbot 仿真底座：Gazebo 场景 + 模型 + 状态发布 + （可选）EKF + RViz。
-
-    ros2 launch navbot_gazebo sim.launch.py
-    ros2 launch navbot_gazebo sim.launch.py headless:=true use_rviz:=false
-    ros2 launch navbot_gazebo sim.launch.py enable_camera:=false
-"""
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -16,14 +10,12 @@ from launch.substitutions import Command, LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
-
 def _has_package(name):
     try:
         get_package_share_directory(name)
         return True
     except Exception:
         return False
-
 
 def generate_launch_description():
     pkg_sim = get_package_share_directory('navbot_gazebo')

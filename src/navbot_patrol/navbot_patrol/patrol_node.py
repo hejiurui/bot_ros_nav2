@@ -11,7 +11,6 @@ from geometry_msgs.msg import PoseStamped
 
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 
-
 def package_config_path():
     try:
         from ament_index_python.packages import get_package_share_directory
@@ -20,7 +19,6 @@ def package_config_path():
     except Exception:
         return None
 
-
 def resolve_config(cli_path):
     for candidate in (cli_path, os.environ.get('NAVBOT_WAYPOINTS'), package_config_path()):
         if candidate and os.path.exists(candidate):
@@ -28,7 +26,6 @@ def resolve_config(cli_path):
     raise FileNotFoundError(
         '找不到航点配置：用 --waypoints 指定，或设置 NAVBOT_WAYPOINTS，'
         '或先 colcon build 让包内 config/ 生效')
-
 
 def load_config(path):
     with open(path, 'r', encoding='utf-8') as handle:
@@ -44,10 +41,8 @@ def load_config(path):
         wp.setdefault('name', 'wp%d' % i)
     return cfg
 
-
 def yaw_to_quaternion(yaw_rad):
     return 0.0, 0.0, math.sin(yaw_rad / 2.0), math.cos(yaw_rad / 2.0)
-
 
 class PatrolRunner(BasicNavigator):
 
@@ -168,7 +163,6 @@ class PatrolRunner(BasicNavigator):
                 return 4
         return 0
 
-
 def parse_args(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('--waypoints', default=None)
@@ -176,7 +170,6 @@ def parse_args(argv):
     ap.add_argument('--timeout', type=float, default=None)
     args, _unknown = ap.parse_known_args(argv)
     return args
-
 
 def main(argv=None):
     args = parse_args(sys.argv[1:] if argv is None else argv)
@@ -215,7 +208,6 @@ def main(argv=None):
         if rclpy.ok():
             rclpy.shutdown()
     return code
-
 
 if __name__ == '__main__':
     sys.exit(main())

@@ -1,8 +1,3 @@
-"""模型进 Gazebo 空世界，验证驱动与传感器（不含 SLAM/导航）。
-
-    ros2 launch navbot_description gazebo.launch.py
-    ros2 launch navbot_description gazebo.launch.py headless:=true
-"""
 import os
 
 from ament_index_python.packages import get_package_share_directory
@@ -14,7 +9,6 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
-
 
 def generate_launch_description():
     pkg = get_package_share_directory('navbot_description')
