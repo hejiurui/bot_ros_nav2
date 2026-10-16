@@ -172,27 +172,32 @@ cp -r <此仓库>/scripts <此仓库>/config ~/navbot_ws/
 
 ```bash
 cd ~/navbot_ws
-rosdep install --from-paths src --ignore-src -r -y   # 或按上面 apt 列表手动装
+rosdep install --from-paths src --ignore-src -r -y
 ```
 
+未装 rosdep 时，按上面 apt 列表手动安装即可。
+
 3. **编译**：
+
+`scripts/build.sh` 等价于 `colcon build --symlink-install`，并额外修正 Windows 侧写入丢失的可执行位。
 
 ```bash
 source /opt/ros/humble/setup.bash
 cd ~/navbot_ws
-./scripts/build.sh            # 等价于 colcon build --symlink-install
+./scripts/build.sh
 source install/setup.bash
 ```
 
 4. **WSL2 用户追加：禁用 FastDDS 共享内存**（原生 Ubuntu 可跳过）：
 
-WSL2 下被 `kill -9` 打断的节点会在 `/dev/shm` 留下 `fastrtps_portXXXX` 锁，之后新进程出现「话题能列出、订阅收不到数据」。仓库自带 `config/fastdds_wsl.xml` 只禁用 SHM：
+WSL2 下被 `kill -9` 打断的节点会在 `/dev/shm` 留下 `fastrtps_portXXXX` 锁，之后新进程出现「话题能列出、订阅收不到数据」。仓库自带 `config/fastdds_wsl.xml` 只禁用 SHM，导出工作由 `scripts/env.sh` 负责，无需手工设置：
 
 ```bash
-# scripts/env.sh 已负责导出，无需手工设置
 source scripts/env.sh
-echo "$FASTDDS_DEFAULT_PROFILES_FILE"      # 应指向 config/fastdds_wsl.xml
+echo "$FASTDDS_DEFAULT_PROFILES_FILE"
 ```
+
+第二行输出应指向 `config/fastdds_wsl.xml`。
 
 > **不要**给 UDP 传输加 `<interfaceWhiteList>127.0.0.1`：WSL2 的 `lo` 不支持组播，写死回环会破坏 SPDP 发现，反而彻底收不到数据。只关 SHM、接口保持默认。
 
@@ -200,20 +205,24 @@ echo "$FASTDDS_DEFAULT_PROFILES_FILE"      # 应指向 config/fastdds_wsl.xml
 
 ### 方式一：一键启动导航 + 巡检
 
+在终端 1 起仿真 + AMCL + Nav2，等 Nav2 生命周期节点就绪后，再在终端 2 拉起巡检：
+
 ```bash
 source ~/navbot_ws/install/setup.bash
-ros2 launch navbot_gazebo navigate.launch.py          # 终端 1：仿真 + AMCL + Nav2
-ros2 launch navbot_patrol patrol.launch.py            # 终端 2：多航点巡检
+ros2 launch navbot_gazebo navigate.launch.py
+ros2 launch navbot_patrol patrol.launch.py
 ```
 
 启动后应看到：Gazebo 中出现机器人与实验室场景，RViz 以 `map` 为参考系显示栅格地图、代价地图与全局路径，巡检终端打印 `航点 9 个，航线 29.58 m` 与逐点进度。
 
 ### 方式二：自己建图（不用仓库里的离线地图）
 
+终端 1 起建图，终端 2 用键盘遥控走遍机器人的三个区域，终端 3 存图：
+
 ```bash
-ros2 launch navbot_gazebo slam.launch.py                                  # 终端 1
-ros2 run teleop_twist_keyboard teleop_twist_keyboard                      # 终端 2：遥控走遍三个区域
-~/navbot_ws/scripts/save_map.sh                                           # 终端 3：存图
+ros2 launch navbot_gazebo slam.launch.py
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+~/navbot_ws/scripts/save_map.sh
 ```
 
 存图后 `navigate.launch.py` 会自动改用新地图。不想跑建图，可直接按场景坐标出图：
@@ -224,30 +233,25 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard                      # 终�
 
 ### 方式三：仅启动仿真预览（不起 Nav2）
 
+前者起场景 + 机器人 + RViz，后者只用 RViz 看模型与 TF：
+
 ```bash
-ros2 launch navbot_gazebo sim.launch.py                 # 场景 + 机器人 + RViz
-ros2 launch navbot_description display.launch.py        # 只看模型与 TF
+ros2 launch navbot_gazebo sim.launch.py
+ros2 launch navbot_description display.launch.py
 ```
 
 ### 分步调试（推荐第一次运行时）
 
 ```bash
-# 1) 模型与几何：展开 xacro 并核对轮距
 xacro src/navbot_description/urdf/navbot.urdf.xacro | grep -E "wheel_separation|wheel_diameter"
-
-# 2) 传感器与里程计是否在发数据
 ros2 topic hz /odom
 ros2 topic echo /scan --once --field header
-
-# 3) TF 链与「唯一父帧」（不要用 tf2_echo，它用系统时钟查）
 ./scripts/tf_probe.py 'map->odom' 'odom->base_footprint' 'base_footprint->base_link'
-
-# 4) 体检：话题数量、EKF 输入、TF 归属、Nav2 服务端
 ./scripts/check_system.sh
-
-# 5) 轮距标定：驱动转圈，拟合 yaw_odom / yaw_true（应 ≈ 1.0）
 ros2 launch navbot_gazebo verify.launch.py
 ```
+
+依次核对：xacro 展开后的轮距与轮径；`/odom`、`/scan` 是否在出数；TF 每条边的唯一父帧（`tf_probe.py` 按仿真时钟查询，`tf2_echo` 用系统时钟会误报 `frame does not exist`）；话题数量、EKF 输入与 Nav2 服务端体检；最后是轮距标定，驱动转圈后拟合 `yaw_odom / yaw_true`，斜率应接近 1.0。
 
 ## 调参速查
 
