@@ -1,269 +1,295 @@
-# navbot —— 差速移动机器人自主导航仿真工程
+# navbot — 差速移动机器人自主导航仿真系统
 
-ROS 2 Humble + Nav2 + slam_toolbox + robot_localization + Gazebo 11。
-从零设计的差速底盘模型（全 primitive 几何，不含任何外部网格文件）、实验室场景、
-建图/定位/导航三条 launch 链，以及多航点巡检任务层与一套可复验的诊断脚本。
+![ROS 2](https://img.shields.io/badge/ROS_2-Humble-blue?logo=ros) ![Gazebo](https://img.shields.io/badge/Gazebo-Classic11-blue?logo=ros&logoColor=white) ![Nav2](https://img.shields.io/badge/Nav2-Humble-brightgreen?logo=ros) ![Python](https://img.shields.io/badge/Python-3.10-yellow?logo=python) ![Ubuntu](https://img.shields.io/badge/Ubuntu-22.04-orange?logo=ubuntu)
 
-| 项 | 值 |
-|---|---|
-| 许可 | MIT（`LICENSE`） |
-| 平台 | Ubuntu 22.04（含 WSL2）、ROS 2 Humble、Gazebo classic 11 |
-| 依赖 | `ros-humble-nav2-bringup`、`slam-toolbox`、`robot-localization`、`gazebo-ros-pkgs`、`teleop-twist-keyboard` |
+navbot 是一个基于 **ROS 2 Humble**、**Gazebo Classic 11** 与 **Nav2** 的室内差速机器人自主导航仿真项目：机器人模型完全由 primitive 几何搭建（不含任何外部网格文件），惯量与轮距由几何公式在 xacro 内推导；slam_toolbox 建图、AMCL 定位、Nav2 规划控制、多航点巡检四层串成一条完整链路，模型层 / 仿真层 / 任务层三包解耦，并配套 12 个可复验的诊断脚本。
 
----
+## 项目概述
 
-## 1. 包结构
+整个系统按「模型 → 仿真 → 建图 → 定位 → 导航 → 任务」流水线构建：`navbot_description` 提供底盘、双驱动轮、前万向球与三类传感器（2D 激光雷达、相机、IMU）的 xacro 与 Gazebo 插件配置；`navbot_gazebo` 提供 12 × 9 m 实验室场景、Nav2 / EKF / slam_toolbox 参数与 `sim / slam / navigate / verify` 四条 launch 链；`navbot_patrol` 基于 `nav2_simple_commander.BasicNavigator` 执行多航点巡检，航点与超时全部来自 YAML。TF 采用「每条边单一发布者」设计：`odom → base_footprint` 由 EKF 或差速插件二选一，`map → odom` 只由定位节点发布。
+
+**核心特性：**
+
+- **零外部资产**：底盘 / 轮 / 雷达 / 相机 / IMU 全部用 box、cylinder、sphere 表达，无 `.dae`，无许可证牵连。
+- **几何驱动参数**：惯量由 `m/12(a²+b²)`、`½mr²`、`2/5mr²` 在 xacro 内推导；轮心高度由 `wheel_radius - base_z` 反推，改轮径自动保持触地；Nav2 的 `robot_radius`、膨胀半径、加减速度上限全部由模型尺寸算出并写明换算式。
+- **TF 单一所有权**：`publish_odom_tf` 做成 xacro 参数，launch 探测 `robot_localization` 是否安装自动切换发布方，工程内不存在任何静态 `map→odom`。
+- **传感器真实建模**：540 线 ±157°、量程 0.15–8.0 m、σ=10 mm 高斯测距噪声的雷达 + 200 Hz IMU，使 EKF 有真实输入而非空转。
+- **任务层配置化**：9 点 / 29.58 m 航线写在 `waypoints.yaml`，换现场不改代码；服务就绪上限、任务总超时取消、结果分类、非 0 退出码，便于脚本与 CI 判定。
+- **可复验**：TF 唯一父帧、话题与发布者数量、轮距标定拟合、端到端联调各有专用脚本，README 每个数字都能现场复跑。
+- **一条命令拉起**：`sim / slam / navigate / patrol` 四条 launch 复用同一个仿真底座，不重复维护。
+
+**关键词：** ROS 2、Nav2、slam_toolbox、robot_localization、Gazebo、URDF/xacro、差速里程计、TF、自主导航、航点巡检、WSL2
+
+## 系统架构
 
 ```
-src/
-├── navbot_description/     模型层
-│   ├── urdf/
-│   │   ├── navbot.urdf.xacro        入口，4 个可传参数
-│   │   ├── navbot_constants.xacro   几何/质量常量 + 惯量推导宏
-│   │   ├── navbot_base.xacro        底盘、双驱动轮、前万向球
-│   │   ├── navbot_sensors.xacro     激光雷达、相机、IMU
-│   │   └── navbot_drivetrain.xacro  Gazebo 差速驱动插件与接触参数
-│   ├── launch/display.launch.py     仅 RViz 看模型
-│   ├── launch/gazebo.launch.py      空世界跑模型与传感器
-│   └── rviz/model.rviz
-│
-├── navbot_gazebo/          仿真与配置层
-│   ├── worlds/lab.world             12 × 9 m 实验室场景（手写显式坐标）
-│   ├── launch/sim.launch.py         唯一"起仿真"入口，其余 launch 复用它
-│   ├── launch/slam.launch.py        = sim + slam_toolbox
-│   ├── launch/navigate.launch.py    = sim + AMCL + Nav2
-│   ├── launch/verify.launch.py      = sim + 标定节点（同一会话）
-│   ├── params/nav2_params.yaml      由模型几何推导
-│   ├── config/ekf.yaml              odom + IMU 融合
-│   ├── config/slam.yaml             slam_toolbox 建图参数
-│   ├── config/{sim,nav}.rviz
-│   ├── maps/lab_map.{pgm,yaml}      脚本按场景坐标生成
-│   └── tools/verify_odometry.py     轮距标定校验
-│
-└── navbot_patrol/          任务层
-    ├── config/waypoints.yaml        航点、超时、初始位姿
-    ├── navbot_patrol/patrol_node.py 多航点巡航节点
-    └── launch/patrol.launch.py
+                  ┌────────────────────────────────────────────────────┐
+  实验室场景 ──▶   │  Gazebo Classic 11（navbot_gazebo/worlds/lab.world）│
+                  │  · 12×9 m，两道隔断，门洞 1.4 m / 2.0 m             │
+                  │  · 5 个障碍物（货箱/长凳/立柱/托盘/圆桶）           │
+                  └──────────────────┬─────────────────────────────────┘
+                                     │ /odom /scan /imu/data  ← 差速插件 + 传感器插件
+                                     ▼
+                  ┌────────────────────────────────────────────────────┐
+                  │  navbot_description（模型层）                       │
+                  │  · 底盘 0.320×0.240×0.060，轮距 0.196，轮径 0.072   │
+                  │  · 惯量由几何公式推导；TF：base_footprint→base_link │
+                  │    →{轮/万向球/scanner_link/camera_link/imu_link}   │
+                  └──────────────────┬─────────────────────────────────┘
+                                     │ odom(轮速) + IMU(姿态/角速度)
+                                     ▼
+                  ┌────────────────────────────────────────────────────┐
+                  │  ekf_filter_node（robot_localization）              │
+                  │  · 只融合 vx / yaw_rate + 姿态，two_d_mode          │
+                  │  · 独占 odom → base_footprint 的 TF 发布            │
+                  └──────────────────┬─────────────────────────────────┘
+                          建图期      │       导航期
+              ┌──────────────────────┴───────────────────────┐
+              ▼                                              ▼
+   ┌────────────────────────┐                  ┌────────────────────────────┐
+   │ slam_toolbox（sync）   │                  │ map_server + AMCL          │
+   │ 发布 map → odom        │                  │ 发布 map → odom            │
+   │ → scripts/save_map.sh  │                  │ /map /amcl_pose /initialpose│
+   └────────────────────────┘                  └─────────────┬──────────────┘
+                                                             │ NavigateToPose / FollowWaypoints
+                                                             ▼
+                  ┌────────────────────────────────────────────────────┐
+                  │  Nav2 栈：bt_navigator → planner(NavFN+A*)          │
+                  │  → controller(DWB) → velocity_smoother              │
+                  │  local/global costmap（robot_radius 0.21）          │
+                  └──────────────────┬─────────────────────────────────┘
+                                     │ /cmd_vel
+                                     ▼
+                  ┌────────────────────────────────────────────────────┐
+                  │  navbot_patrol（任务层，Python）                    │
+                  │  读 waypoints.yaml → setInitialPose → followWaypoints│
+                  │  → 进度反馈 → 超时取消 → 结果分类与退出码           │
+                  └────────────────────────────────────────────────────┘
 ```
 
-依赖方向单向：`navbot_patrol → Nav2 接口`，`navbot_gazebo → navbot_description`。
-任务层不知道模型长什么样，只发 `PoseStamped`。
+## 目录结构
 
----
+```
+navbot/
+├── config/
+│   └── fastdds_wsl.xml                   # WSL2 专用 DDS 传输（关 SHM，不限接口）
+├── scripts/
+│   ├── env.sh                            # source ROS + 工作区 + 导出 DDS 配置
+│   ├── build.sh                          # 修执行位 + colcon build
+│   ├── kill_sim.sh                       # 清孤儿进程 / gzmaster / SHM 锁
+│   ├── reset_dds.sh                      # 复位 FastDDS 共享内存状态
+│   ├── check_system.sh                   # 话题/发布者数量、TF 归属、服务端体检
+│   ├── tf_probe.py                       # 按仿真时钟查 TF，校验唯一父帧
+│   ├── gen_map_from_world.py             # 按场景坐标生成栅格地图（跳过 SLAM）
+│   ├── save_map.sh                       # map_saver_cli 绝对路径存图
+│   ├── measure_sim_speed.sh              # 按传感器组合量仿真实时倍率
+│   ├── verify_odometry.py                # 轮距标定拟合（已并入包内 tools/）
+│   ├── selftest.sh                       # 健康检查 + 标定两阶段自测
+│   └── nav_check.sh                      # 地图→AMCL→Nav2→巡检受理 端到端联调
+└── src/
+    ├── navbot_description/               # 模型层（ament_cmake）
+    │   ├── urdf/
+    │   │   ├── navbot.urdf.xacro         # 入口，4 个可传参数
+    │   │   ├── navbot_constants.xacro    # 几何/质量常量 + 惯量推导宏
+    │   │   ├── navbot_base.xacro         # 底盘、双驱动轮、前万向球
+    │   │   ├── navbot_sensors.xacro      # 雷达、相机、IMU 及其 Gazebo 插件
+    │   │   └── navbot_drivetrain.xacro   # 差速驱动插件与接触/摩擦参数
+    │   ├── launch/
+    │   │   ├── display.launch.py         # 仅 RViz 看模型
+    │   │   └── gazebo.launch.py          # 空世界跑模型与传感器
+    │   └── rviz/model.rviz
+    ├── navbot_gazebo/                    # 仿真与配置层（ament_cmake）
+    │   ├── worlds/lab.world              # 12×9 m 场景（手写显式坐标）
+    │   ├── launch/
+    │   │   ├── sim.launch.py             # 唯一「起仿真」入口
+    │   │   ├── slam.launch.py            # = sim + slam_toolbox
+    │   │   ├── navigate.launch.py        # = sim + AMCL + Nav2
+    │   │   └── verify.launch.py          # = sim + 标定节点（同一会话）
+    │   ├── params/nav2_params.yaml       # 由模型几何推导
+    │   ├── config/
+    │   │   ├── ekf.yaml                  # odom + IMU 融合
+    │   │   ├── slam.yaml                 # slam_toolbox 建图参数
+    │   │   └── sim.rviz / nav.rviz       # 无图 / 有图两套 RViz 配置
+    │   ├── maps/lab_map.pgm|.yaml        # 脚本按场景坐标生成
+    │   └── tools/verify_odometry.py      # 轮距标定校验节点
+    └── navbot_patrol/                    # 任务层（ament_python）
+        ├── config/waypoints.yaml         # 航点、超时、初始位姿
+        ├── launch/patrol.launch.py       # 注入 use_sim_time
+        └── navbot_patrol/patrol_node.py  # 多航点巡航节点
+```
 
-## 2. 快速开始
+## 命名体系
+
+| 类别 | 命名规则 | 示例 |
+|------|----------|------|
+| 功能包 | `navbot_*` | `navbot_description` / `navbot_gazebo` / `navbot_patrol` |
+| TF 帧树 | `map → odom → base_footprint → base_link → 部件` | 部件：`left/right_wheel_link`、`caster_link`、`scanner_link → scanner_frame`、`camera_link → camera_optical_frame`、`imu_link` |
+| 关节 | `<部位>_joint`；驱动轮 `<side>_wheel_joint` | `base_joint` / `left_wheel_joint` / `scanner_beam_joint` / `camera_optical_joint` |
+| 核心话题 | `/odom`（nav_msgs/Odometry）、`/scan`、`/imu/data`、`/cmd_vel` | 由差速插件与传感器插件发布，话题名固定不带命名空间 |
+| 定位话题 | `/map`、`/amcl_pose`、`/initialpose`、`/plan`、`/local_plan` | map_server / AMCL / bt_navigator |
+| 动作接口 | `/navigate_to_pose`、`/follow_waypoints` | `nav2_simple_commander.BasicNavigator` 封装 |
+| 仿真实体 | `navbot` | `spawn_entity.py -entity navbot` |
+| 场景与地图 | `worlds/lab.world` ↔ `maps/lab_map.{pgm,yaml}` | 坐标一一对应，出生点在世界原点 |
+| 巡检配置 | `config/waypoints.yaml` 的 `initial_pose / task / waypoints` | 航点字段 `name x y yaw_deg` |
+
+## 环境依赖
+
+- **操作系统**：Ubuntu 22.04（亦验证于 Windows WSL2 Ubuntu 22.04 + WSLg）。
+- **ROS 2**：Humble Hawksbill。
+- **Gazebo**：Classic 11（`libgazebo_ros_*` 插件体系）。
+- **主要依赖**：
 
 ```bash
-mkdir -p ~/navbot_ws && git clone <此仓库> ~/navbot_ws/src   # 或直接把 src/ 放进工作区
-cd ~/navbot_ws
-./scripts/build.sh
-source install/setup.bash
-
-ros2 launch navbot_description display.launch.py          # ① 看模型
-ros2 launch navbot_gazebo sim.launch.py                   # ② 进场景
-ros2 launch navbot_gazebo slam.launch.py                  # ③ 建图
-ros2 run teleop_twist_keyboard teleop_twist_keyboard      #    遥控走一圈
-./scripts/save_map.sh                                     #    存图
-ros2 launch navbot_gazebo navigate.launch.py              # ④ 定位 + 导航
-ros2 launch navbot_patrol patrol.launch.py                # ⑤ 巡检
+sudo apt install -y \
+  ros-humble-nav2-bringup \
+  ros-humble-nav2-simple-commander \
+  ros-humble-slam-toolbox \
+  ros-humble-robot-localization \
+  ros-humble-gazebo-ros-pkgs \
+  ros-humble-xacro \
+  ros-humble-robot-state-publisher \
+  ros-humble-joint-state-publisher \
+  ros-humble-rviz2 \
+  ros-humble-teleop-twist-keyboard \
+  python3-colcon-common-extensions
 ```
 
-不想跑建图，直接按场景坐标出图：
+> 未安装 `robot_localization` 也能跑：launch 会自动探测并把 `odom→base_footprint` 的 TF 发布权交给差速插件。
+
+## 安装步骤
+
+1. **创建工作区并放入源码**：
+
+```bash
+mkdir -p ~/navbot_ws/src
+cp -r <此仓库>/src/* ~/navbot_ws/src/
+cp -r <此仓库>/scripts <此仓库>/config ~/navbot_ws/
+```
+
+> **WSL2 注意**：不要在 `/mnt/c`（NTFS 挂载）下编译，CMake 编译器自检会报错；请把工程拷入 WSL 原生文件系统（如 `~/navbot_ws`）后再编。另外从 Windows 侧写过的文件可能丢失可执行位，`scripts/build.sh` 会自动 `chmod +x`。
+
+2. **安装依赖**：
+
+```bash
+cd ~/navbot_ws
+rosdep install --from-paths src --ignore-src -r -y   # 或按上面 apt 列表手动装
+```
+
+3. **编译**：
+
+```bash
+source /opt/ros/humble/setup.bash
+cd ~/navbot_ws
+./scripts/build.sh            # 等价于 colcon build --symlink-install
+source install/setup.bash
+```
+
+4. **WSL2 用户追加：禁用 FastDDS 共享内存**（原生 Ubuntu 可跳过）：
+
+WSL2 下被 `kill -9` 打断的节点会在 `/dev/shm` 留下 `fastrtps_portXXXX` 锁，之后新进程出现「话题能列出、订阅收不到数据」。仓库自带 `config/fastdds_wsl.xml` 只禁用 SHM：
+
+```bash
+# scripts/env.sh 已负责导出，无需手工设置
+source scripts/env.sh
+echo "$FASTDDS_DEFAULT_PROFILES_FILE"      # 应指向 config/fastdds_wsl.xml
+```
+
+> **不要**给 UDP 传输加 `<interfaceWhiteList>127.0.0.1`：WSL2 的 `lo` 不支持组播，写死回环会破坏 SPDP 发现，反而彻底收不到数据。只关 SHM、接口保持默认。
+
+## 运行
+
+### 方式一：一键启动导航 + 巡检
+
+```bash
+source ~/navbot_ws/install/setup.bash
+ros2 launch navbot_gazebo navigate.launch.py          # 终端 1：仿真 + AMCL + Nav2
+ros2 launch navbot_patrol patrol.launch.py            # 终端 2：多航点巡检
+```
+
+启动后应看到：Gazebo 中出现机器人与实验室场景，RViz 以 `map` 为参考系显示栅格地图、代价地图与全局路径，巡检终端打印 `航点 9 个，航线 29.58 m` 与逐点进度。
+
+### 方式二：自己建图（不用仓库里的离线地图）
+
+```bash
+ros2 launch navbot_gazebo slam.launch.py                                  # 终端 1
+ros2 run teleop_twist_keyboard teleop_twist_keyboard                      # 终端 2：遥控走遍三个区域
+~/navbot_ws/scripts/save_map.sh                                           # 终端 3：存图
+```
+
+存图后 `navigate.launch.py` 会自动改用新地图。不想跑建图，可直接按场景坐标出图：
 
 ```bash
 ./scripts/gen_map_from_world.py && ./scripts/build.sh
 ```
 
-调试开关：
+### 方式三：仅启动仿真预览（不起 Nav2）
 
-| 参数 | 作用 |
-|---|---|
-| `headless:=true` | 不起 gzclient（无图形环境时用） |
-| `enable_camera:=false` | 关掉相机（软件渲染环境里的主要开销） |
-| `enable_lidar:=false` | 关掉激光雷达，只留物理与 TF |
-| `use_ekf:=false` | 由差速插件发布 odom TF，不用 EKF |
-| `spawn_timeout:=480` | 等待 `/spawn_entity` 的秒数 |
-| `map_file_path:=/绝对路径.yaml` | 换地图 |
-| `use_composition:=True` | Nav2 节点合并进组件容器 |
-
----
-
-## 3. 模型设计
-
-### 3.1 几何（`navbot_constants.xacro`，全部自定义）
-
-| 项 | 值 | 说明 |
-|---|---|---|
-| 底盘 | 0.320 × 0.240 × 0.060 m | 中心离地 `base_z = 0.065` |
-| 驱动轮 | 半径 0.036、宽 0.024 m | 轮心 y = ±0.098 → **轮距 0.196 m** |
-| 驱动轴位置 | x = −0.040 m | 轴在几何中心后方，前部留给万向球 |
-| 前万向球 | 半径 0.018 m，x = +0.120 | 摩擦系数 0，等效随动轮 |
-| 激光雷达 | 半径 0.035、高 0.042，光面离地 0.129 m | x = +0.060 |
-| 相机 | 0.090 × 0.025 × 0.025 m | 光心 x = +0.160，离地 0.110 |
-| IMU | 0.020 × 0.020 × 0.006 m | 放在底盘中心下方，杠杆臂最小 |
-| 整机质量 | 2.235 kg | 各部件质量之和 |
-
-轮心 z 由 `wheel_radius - base_z` 反推，因此**改轮径就自动保持触地**，
-不会出现"轮子悬空/陷地"这类 URDF 常见错误。
-
-### 3.2 惯量
-
-不抄 CAD 报表，直接在 xacro 里由几何公式推导：
-
-```
-长方体  I = m/12 · (a² + b²)
-圆柱    轴向 I = ½mr²，径向 I = m(3r² + l²)/12
-球      I = 2/5 mr²
+```bash
+ros2 launch navbot_gazebo sim.launch.py                 # 场景 + 机器人 + RViz
+ros2 launch navbot_description display.launch.py        # 只看模型与 TF
 ```
 
-因此改任何一个尺寸或质量，惯量自动跟着变，物理行为始终自洽。
+### 分步调试（推荐第一次运行时）
 
-### 3.3 传感器参数
+```bash
+# 1) 模型与几何：展开 xacro 并核对轮距
+xacro src/navbot_description/urdf/navbot.urdf.xacro | grep -E "wheel_separation|wheel_diameter"
 
-| 传感器 | 参数 |
-|---|---|
-| 激光雷达 | 540 线、±157°、量程 0.15–8.0 m、10 Hz、高斯测距噪声 σ=10 mm |
-| IMU | 200 Hz，世界系姿态（`initialOrientationAsReference=false`） |
-| 相机 | 640×480、70° 水平视场、15 Hz |
+# 2) 传感器与里程计是否在发数据
+ros2 topic hz /odom
+ros2 topic echo /scan --once --field header
 
-雷达量程 8 m 与场景尺寸（12 × 9 m）匹配：单点能看到对墙，扫描匹配有足够约束。
+# 3) TF 链与「唯一父帧」（不要用 tf2_echo，它用系统时钟查）
+./scripts/tf_probe.py 'map->odom' 'odom->base_footprint' 'base_footprint->base_link'
 
----
+# 4) 体检：话题数量、EKF 输入、TF 归属、Nav2 服务端
+./scripts/check_system.sh
 
-## 4. TF 设计：每条边只有一个发布者
-
-```
-map ──(slam_toolbox 建图时 / AMCL 导航时)── odom ──(EKF 或差速插件，二选一)── base_footprint ── base_link ──┬─ left/right_wheel_link
-                                                                                                             ├─ caster_link
-                                                                                                             ├─ scanner_link ── scanner_frame
-                                                                                                             ├─ camera_link ── camera_optical_frame
-                                                                                                             └─ imu_link
+# 5) 轮距标定：驱动转圈，拟合 yaw_odom / yaw_true（应 ≈ 1.0）
+ros2 launch navbot_gazebo verify.launch.py
 ```
 
-规则写进模型而不是靠 launch 打补丁：
+## 调参速查
 
-- `odom → base_footprint` 由 xacro 参数 `publish_odom_tf` 控制，默认 `false`（EKF 持有）。
-  `sim.launch.py` 探测 `robot_localization` 是否安装：装了就把发布权给 EKF，
-  没装则自动把该参数置 `true` 让差速插件顶替。**任何时刻不会出现两个发布者。**
-- `map → odom` 只由 slam_toolbox（建图）或 AMCL（导航）发布，工程内不存在任何静态 `map→odom`。
-- 全栈 `base_frame` 统一为 `base_footprint`（AMCL、bt_navigator、两个 costmap、behavior_server、EKF）。
+| 参数 | 位置 | 默认 | 说明 |
+|------|------|------|------|
+| 底盘尺寸 | `navbot_constants.xacro` | 0.320×0.240×0.060 m | 决定 `robot_radius` 与外接圆 |
+| 轮径 / 轮距 | `navbot_constants.xacro` | r=0.036 / track=0.196 m | 插件值由常量推导，改一处即可 |
+| 各部件质量 | `navbot_constants.xacro` | 整机 2.235 kg | 惯量自动重算 |
+| `publish_odom_tf` | xacro 参数 | `false` | 谁发布 `odom→base_footprint`；`use_ekf:=false` 时自动置 true |
+| `enable_camera` / `enable_lidar` | launch 参数 | true | 关掉渲染型传感器可显著加快 headless 步进 |
+| `lidar_visualize` | launch 参数 | false | 在 Gazebo 中画出射线 |
+| `headless` | launch 参数 | false | 不起 gzclient（无图形环境） |
+| `spawn_timeout` | launch 参数 | 240 s | 等待 `/spawn_entity` 服务，慢机器需放宽 |
+| `robot_radius` | `params/nav2_params.yaml` | 0.21 m | 外接圆 √(0.16²+0.12²)=0.20，相机前伸 0.205 |
+| `inflation_radius` | `params/nav2_params.yaml` | 0.45 m | 需小于最窄门洞的一半余量（门 1.4 m） |
+| `max_vel_x / min_vel_x` | `params/nav2_params.yaml` | 0.30 / −0.12 m/s | 允许倒车脱困 |
+| `acc_lim_x` | `params/nav2_params.yaml` | 0.5 m/s² | 上限来自插件 `max_wheel_acceleration 15 × 0.036 = 0.54` |
+| `laser_max_range` | `params/nav2_params.yaml` | 8.0 m | 与雷达量程一致（AMCL + 两个 costmap） |
+| `xy_goal_tolerance` | `params/nav2_params.yaml` | 0.20 m | 到点判定容差 |
+| EKF `odom0_config` | `config/ekf.yaml` | 仅 vx + yaw_rate | 差速车 vy 不可测，不要喂位姿 |
+| EKF `imu0_relative` | `config/ekf.yaml` | true | 以开机第一帧为零点，避免把仿真绝对航向当真值 |
+| 建图分辨率 | `config/slam.yaml` | 0.05 m | 与 `nav2_params` 的 costmap 分辨率保持一致 |
+| 航点与超时 | `navbot_patrol/config/waypoints.yaml` | 9 点 / 29.58 m，`timeout_sec 420` | `--waypoints` > `NAVBOT_WAYPOINTS` > 包内默认 |
+| `task.loop` | 同上 | 1 | 整条航线重复轮数 |
 
----
+## 验证状态
 
-## 5. 定位与导航参数依据
+**已验证**：三包 `colcon build` 全绿；7 个 launch 构造通过；`check_urdf` 通过且 TF 树形状与上文一致；轮心 z=0.036、万向球 z=0.018 均正好触地；xacro 四个参数矩阵生效；headless 与窗口两种模式均成功 spawn；`/odom /scan /imu/data /cmd_vel /map /plan` 正常；Nav2 15 个进程启动、两个动作服务端在位；巡检节点读取 9 点 / 29.58 m 航线并进入等待。
 
-`params/nav2_params.yaml` 里与几何相关的数值全部由模型反推，不用模板默认值：
+**受环境限制未完成**：完整 9 点巡检走完、SLAM 实跑建图与轮距斜率 k≈1 实测——在无 GPU 直通的 WSL2 上物理步进明显低于实时，需要几十分钟到数小时的墙上时间；在原生 Linux 或带 GPU 的环境正常。
 
-| 参数 | 值 | 依据 |
-|---|---|---|
-| `robot_radius` | 0.21 m | 底盘外接圆 √(0.16²+0.12²)=0.20，相机前伸到 0.205 → 取 0.21 |
-| `inflation_radius` | 0.45 m | ≈ 2× 半径，窄门（1.4 m）仍可通行 |
-| `max_vel_x / min_vel_x` | 0.30 / −0.12 m/s | 允许倒车，U 型死角可退出 |
-| `max_vel_theta` | 1.5 rad/s | ω = 2·v_axle/track = 2×0.30/0.196 ≈ 3.1 的上限留余量 |
-| `acc_lim_x` | 0.5 m/s² | 插件 `max_wheel_acceleration 15 rad/s² × 0.036 = 0.54 m/s²`，控制器不得超出物理能力 |
-| `laser_max_range / obstacle_max_range` | 8.0 / 4.5 m | 与雷达量程一致 |
-| `xy_goal_tolerance` | 0.20 m | 半径 0.21 的底盘在 1.4 m 门宽内的可达重复精度 |
-| 规划器 | NavFN + A*，`allow_unknown: false` | 使用离线完整地图时禁止穿越未知区 |
-| 控制器 | DWB，7 个 critic | 差速室内机标准配法 |
+## 常见问题
 
-`config/ekf.yaml`：里程计只喂 `vx` 与 `yaw_rate`（差速车的 `vy` 不可测，喂进去等于把噪声当状态），
-姿态与角速度由 IMU 提供，`imu0_relative: true` 以开机第一帧为零点，
-避免把仿真世界的绝对航向当成无误差真值。
+- **`Service /spawn_entity unavailable. Was Gazebo started with GazeboRosFactory?`**：不是插件没加载，而是 gzserver 冷启动慢于 `spawn_entity.py` 默认 30 s 等待。用 `-p spawn_timeout:=480` 放宽。
+- **Gazebo 窗口一开就卡住、机器人不出现**：`/etc/profile.d` 里若设了 `LIBGL_ALWAYS_SOFTWARE=0`（走 Mesa D3D12/GPU-PV），gzclient 会饿死 gzserver 的 ROS 服务线程。本工程 launch 在带窗口时自动强制软件渲染，无需手工 export。
+- **话题能 `ros2 topic list` 到，但订阅收不到数据（WSL2）**：FastDDS SHM 端口锁泄漏，执行 `./scripts/reset_dds.sh` 或 `./scripts/kill_sim.sh`；并确认发布端与订阅端 source 的是同一份 `scripts/env.sh`。
+- **`tf2_echo` 报 `frame does not exist`**：`tf2_echo` 用系统时间查询，而仿真时间只走了几十秒。改用 `./scripts/tf_probe.py`（按仿真时钟查询，且采满时间窗，否则只会看到静态边）。
+- **RViz 报 `Frame [map] does not exist`**：`sim.launch.py` 阶段没有定位节点，`map` 帧本就不存在。默认配置已改用 `odom`；若你在 `navigate.launch.py` 下看到该报错，说明地图文件缺失（跑 `./scripts/gen_map_from_world.py` 或先建图）。
+- **Nav2 报 `planner lagging` / EKF `Frequency too low`**：期望频率按实时仿真设定，而当前步进倍率低于实时所致，不是配置错误。
+- **`pkill -f "gzserver"` 把终端自己杀了**：`wsl.exe -e bash -lc '...'` 内联写这种 pattern 会匹配到调用者自身的命令行。清理逻辑请走 `./scripts/kill_sim.sh`（pattern 锚定安装路径并跳过自身与祖先进程）。
+- **`ros2 launch ... use_composition:=true` 报 `NameError: name 'true' is not defined`**：nav2 的 launch 会 `eval()` 该参数值，需要 Python 字面量。本工程的 `_nav_bool()` 已在生成期归一，`true/True/1/false/False/0` 都可用。
 
----
+## License
 
-## 6. 场景
-
-`worlds/lab.world`：12 × 9 m 内部空间，墙厚 0.12、高 1.0 m，两道隔断形成西区 / 中央通道 / 东区，
-门洞分别为 1.4 m（x = −1.8）与 2.0 m（x = +2.0），5 个障碍物（货箱、长凳、立柱、托盘、圆桶）。
-机器人出生点在世界原点、yaw = 0，因此 **SLAM 的 map 原点与世界原点重合**，
-`config/waypoints.yaml` 里的每个航点都能与场景坐标直接对照，
-`scripts/gen_map_from_world.py` 也按同一组坐标生成离线地图。
-
-巡检航线 9 点、折线长 29.58 m，逐点做过净空校验（距墙与障碍 ≥ 0.5 m > `robot_radius` + 膨胀余量）。
-
----
-
-## 7. 任务层
-
-`navbot_patrol` 基于 `nav2_simple_commander.BasicNavigator`：
-
-```
-setInitialPose → waitUntilNav2Active → followWaypoints
-    → 轮询 isTaskComplete / getFeedback → getResult
-```
-
-实现要点：
-
-- 航点、超时、初始位姿全部来自 `config/waypoints.yaml`；查找顺序
-  `--waypoints` > 环境变量 `NAVBOT_WAYPOINTS` > 包内默认配置。
-- 服务就绪等待有上限（默认 30 s），超时以退出码 2 结束并提示下一步，不会无限挂住。
-- 任务总超时（默认 420 s）触发 `cancelTask`；Ctrl+C 与外部关闭信号都走同一条清理路径。
-- 反馈日志按"航点序号变化 + 最小时间间隔"节流。
-- 结果按 `TaskResult` 分类，多轮巡检（`task.loop`）中途取消或失败即停止后续轮次。
-- 退出码：0 成功 / 1 配置错误 / 2 Nav2 未就绪 / 3 被取消 / 4 执行失败 —— 便于脚本与 CI 判定。
-
----
-
-## 8. 诊断脚本
-
-| 脚本 | 用途 |
-|---|---|
-| `scripts/env.sh` | source ROS 与工作区、导出 WSL2 专用 DDS 配置 |
-| `scripts/build.sh` | 修正执行位 + `colcon build --symlink-install` |
-| `scripts/kill_sim.sh` | 清理孤儿进程、gzmaster 套接字、SHM 端口锁 |
-| `scripts/check_system.sh` | 话题与发布者数量、EKF 输入、TF 归属、Nav2 服务端 |
-| `scripts/tf_probe.py` | 按仿真时钟查 TF，校验"每条边唯一父帧" |
-| `scripts/gen_map_from_world.py` | 按场景坐标生成 nav2 栅格地图（跳过 SLAM） |
-| `scripts/save_map.sh` | `map_saver_cli` 绝对路径存图 |
-| `scripts/measure_sim_speed.sh` | 按传感器组合量仿真实时倍率 |
-| `scripts/verify_odometry.py` → 已并入 `navbot_gazebo/tools/` | 驱动转圈，拟合 `yaw_odom / yaw_true` |
-| `scripts/selftest.sh` | 健康检查 + 轮距标定两阶段自测 |
-| `scripts/nav_check.sh` | 地图 → AMCL → Nav2 → 巡检受理 的端到端联调 |
-| `scripts/reset_dds.sh` | 复位 Fast DDS 共享内存状态 |
-
----
-
-## 9. 验证状态
-
-**已验证**
-
-- `colcon build` 三包全绿；9 个 launch 文件构造通过
-- `check_urdf` 通过；TF 树形状与第 4 节一致；轮心 z = 0.036、万向球 z = 0.018 均正好触地
-- xacro 四个参数（`publish_odom_tf` / `enable_camera` / `enable_lidar` / `lidar_visualize`）全部生效
-- 展开后的 URDF 中 `wheel_separation = 0.196`、`wheel_diameter = 0.072` 与关节几何一致
-- headless 与窗口两种模式均能完成实体 spawn；`/odom`、`/scan`、`/imu/data`、`/cmd_vel` 正常
-- Nav2 全栈用本工程参数启动：15 个进程、`/map /plan /odom /scan /imu/data` 与
-  `/navigate_to_pose`、`/follow_waypoints` 均在；巡检节点读取 9 点 / 29.58 m 航线并进入等待
-
-**受环境限制未完成**
-
-- 完整 9 点巡检走完、SLAM 实跑建图：在无 GPU 直通的 WSL2 上物理步进明显低于实时，
-  需要几十分钟到数小时的墙上时间；在原生 Linux 或带 GPU 的环境正常。
-- `verify.launch.py` 的轮距斜率 k≈1 实测：同上，脚本与步骤已就位。
-
----
-
-## 10. WSL2 注意事项
-
-1. **`/etc/profile.d` 里的 GPU 渲染设置会让 gzclient 卡死**。若 `LIBGL_ALWAYS_SOFTWARE=0`
-   走 Mesa D3D12 通道，gzclient 一开就饿死 gzserver 的 ROS 服务线程，表现为
-   `Service /spawn_entity unavailable`。本工程在 launch 内部强制
-   `LIBGL_ALWAYS_SOFTWARE=1`（仅带窗口时），无需手工 export。
-2. **Fast DDS 共享内存端口锁泄漏**。被 `kill -9` 打断的节点会在 `/dev/shm` 留下
-   `fastrtps_portXXXX` 锁，之后新进程出现"话题能列出、订阅收不到数据"。
-   `config/fastdds_wsl.xml` 只禁用 SHM、**不限制网络接口**（WSL2 的 `lo` 不支持组播，
-   把接口白名单写死成 `127.0.0.1` 会破坏发现机制）。`scripts/reset_dds.sh` 可复位。
-3. **验证类节点要与仿真同一个 launch 会话**。跨会话 DDS 投递不稳定，
-   所以轮距标定做成 `verify.launch.py` 而不是另开终端跑脚本。
-4. **查 TF 用仿真时钟**。`ros2 run tf2_ros tf2_echo` 用系统时间查询，仿真里会得到
-   `frame does not exist` 这类误导结果；用 `scripts/tf_probe.py`。
-5. **`pkill -f` 的自匹配陷阱**：在 `wsl.exe -e bash -lc '...'` 里内联写
-   `pkill -f "gzserver"`，模式会匹配到调用者自己的命令行并把自己的 shell 杀掉，
-   表现为"命令毫无输出"。清理逻辑放在脚本文件里，pattern 锚定到安装路径。
-
----
-
-## 11. 许可
-
-MIT，见 `LICENSE`。场景中所有几何、参数、脚本与文档均为本工程自定义，不含第三方模型或网格文件。
+MIT，见 `LICENSE`。场景中所有几何、参数、脚本与文档均为本项目自定义，不含第三方模型或网格文件。
