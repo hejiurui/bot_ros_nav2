@@ -6,50 +6,55 @@ initial_pose:
 
 task:
   ready_timeout_sec: 30.0
-  timeout_sec: 420.0
+  timeout_sec: 480.0
   log_period_sec: 3.0
   loop: 1
 
 waypoints:
-  - name: start
+  - name: home
     x: 0.0
     y: 0.0
     yaw_deg: 0.0
 
-  - name: west_door
-    x: -3.0
-    y: 0.0
+  - name: rack_west
+    x: -5.6
+    y: -12.0
     yaw_deg: 180.0
 
-  - name: west_north
-    x: -3.0
-    y: 3.0
-    yaw_deg: 90.0
+  - name: rack_south
+    x: -5.6
+    y: -21.0
+    yaw_deg: 180.0
 
-  - name: west_south
-    x: -2.6
-    y: -3.0
-    yaw_deg: -90.0
-
-  - name: corridor
-    x: 0.0
-    y: 0.0
+  - name: rack_east
+    x: 2.2
+    y: -21.0
     yaw_deg: 0.0
 
-  - name: corridor_north
+  - name: rack_east_up
+    x: 2.2
+    y: -12.0
+    yaw_deg: 90.0
+
+  - name: east_passage
+    x: 13.5
+    y: 1.0
+    yaw_deg: 90.0
+
+  - name: north_row
+    x: 13.5
+    y: 13.0
+    yaw_deg: 90.0
+
+  - name: north_mid
     x: 0.0
-    y: 3.0
-    yaw_deg: 90.0
+    y: 13.0
+    yaw_deg: 180.0
 
-  - name: east_door
-    x: 3.2
-    y: -0.6
-    yaw_deg: 0.0
-
-  - name: east_north
-    x: 3.2
-    y: 1.6
-    yaw_deg: 90.0
+  - name: north_west
+    x: -8.0
+    y: 13.0
+    yaw_deg: 180.0
 
   - name: return_home
     x: 0.0

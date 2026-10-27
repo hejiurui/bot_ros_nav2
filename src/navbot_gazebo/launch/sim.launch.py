@@ -22,7 +22,9 @@ def generate_launch_description():
     pkg_desc = get_package_share_directory('navbot_description')
 
     xacro_file = os.path.join(pkg_desc, 'urdf', 'navbot.urdf.xacro')
-    world_file = os.path.join(pkg_sim, 'worlds', 'lab.world')
+    world_file = os.path.join(pkg_sim, 'worlds', 'warehouse.world')
+    if not os.path.exists(world_file):
+        world_file = os.path.join(pkg_sim, 'worlds', 'lab.world')
     ekf_file = os.path.join(pkg_sim, 'config', 'ekf.yaml')
     rviz_file = os.path.join(pkg_sim, 'config', 'sim.rviz')
     gazebo_dir = os.path.join(get_package_share_directory('gazebo_ros'), 'launch')

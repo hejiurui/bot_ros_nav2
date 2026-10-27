@@ -11,6 +11,11 @@ fi
 
 source "$WS_ROOT/scripts/env.sh"
 
+find "$WS_ROOT/scripts" "$WS_ROOT/src" -type f \
+  \( -name '*.sh' -o -name '*.py' -o -name '*.yaml' -o -name '*.xacro' -o -name '*.urdf' \
+     -o -name '*.world' -o -name '*.rviz' -o -name '*.xml' -o -name '*.txt' -o -name '*.cfg' \) \
+  -print0 2>/dev/null | xargs -0 -r sed -i 's/\r$//'
+
 chmod +x "$WS_ROOT"/scripts/*.sh "$WS_ROOT"/scripts/*.py 2>/dev/null || true
 chmod +x "$WS_ROOT"/src/*/tools/* 2>/dev/null || true
 

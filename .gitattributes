@@ -1,0 +1,18 @@
+* text=auto eol=lf
+
+# 明确保持 LF 的文本类型（WSL/Linux 侧必须为 LF）
+*.sh    text eol=lf
+*.py    text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.xacro text eol=lf
+*.urdf  text eol=lf
+*.world text eol=lf
+*.rviz  text eol=lf
+*.xml   text eol=lf
+*.md    text eol=lf
+
+# 二进制
+*.pgm   binary
+*.png   binary
+*.jpg   binary

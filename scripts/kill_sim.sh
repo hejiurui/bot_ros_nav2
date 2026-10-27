@@ -11,11 +11,12 @@ PATTERNS=(
   '/opt/ros/humble/lib/rclcpp_components/component_container'
   '/opt/ros/humble/lib/rviz2/rviz2'
   '/opt/ros/humble/lib/teleop_twist_keyboard/'
-  '/lib/navbot_patrol/navbot_patrol'
+  '/opt/ros/humble/bin/ros2 launch navbot_'
+  'lib/navbot_patrol/patrol'
   '/homebot2_ws/src/robot_'
 )
 
-ancestors() {  # 自身 + 全部祖先 PID，永远不杀
+ancestors() {
   local pid=$$ out=""
   while [ -n "$pid" ] && [ "$pid" != "0" ] && [ "$pid" != "1" ]; do
     out="$out $pid"
@@ -55,6 +56,6 @@ if ! pgrep -x gzserver >/dev/null 2>&1 \
 fi
 ros2 daemon stop --force >/dev/null 2>&1 || true
 
-LEFT=$(pgrep -f '/opt/ros/humble/bin/ros2 launch robot_|/opt/ros/humble/lib/nav2_' 2>/dev/null | wc -l)
+LEFT=$(pgrep -f '/opt/ros/humble/bin/ros2 launch (navbot|robot)_|/opt/ros/humble/lib/nav2_|lib/navbot_patrol/patrol' 2>/dev/null | wc -l)
 echo "[kill_sim] 完成，本工程残留启动进程 $LEFT 个"
 exit 0

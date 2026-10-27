@@ -13,7 +13,7 @@ fi
 source "$WS_ROOT/scripts/env.sh"
 "$WS_ROOT/scripts/kill_sim.sh"
 
-wait_for_odom() {  # 等 gzserver 把插件起起来（冷启动通常 15~40 s）
+wait_for_odom() {
   local log="$1"
   for i in $(seq 1 40); do
     grep -q "Advertise odometry on" "$log" 2>/dev/null && return 0

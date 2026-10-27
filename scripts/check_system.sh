@@ -10,7 +10,7 @@ source "$WS_ROOT/scripts/env.sh"
 fail=0
 rule() { printf '%s\n' "------------------------------------------------------------------------"; }
 
-topic_count() {  # 发布者为 0/1/多
+topic_count() {
   timeout 12 ros2 topic info "$1" --verbose 2>/dev/null | awk '/Publisher count/{print $3; exit}'
 }
 
@@ -53,7 +53,7 @@ echo "  若同时出现 ekf_filter_node 与 gzserver/差速插件，就是 TF �
 rule
 echo "[4] TF 链路连通性（用 scripts/tf_probe.py，按仿真时钟查询）"
 timeout 40 python3 "$WS_ROOT/scripts/tf_probe.py" \
-  'odom->base_footprint' 'base_footprint->base_link' 'base_link->scanner_frame' \
+  'odom->base_footprint' 'base_footprint->base_link' 'scanner_link->scanner_frame' \
   2>&1 | sed 's/^/  /' || fail=1
 if timeout 40 python3 "$WS_ROOT/scripts/tf_probe.py" 'map->base_footprint' 2>&1 | grep -q "OK"; then
   echo "  map -> base_footprint 已就绪（定位已激活）"

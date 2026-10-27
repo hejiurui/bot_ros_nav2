@@ -6,7 +6,7 @@ navbot 是一个基于 **ROS 2 Humble**、**Gazebo Classic 11** 与 **Nav2** 的
 
 ## 项目概述
 
-整个系统按「模型 → 仿真 → 建图 → 定位 → 导航 → 任务」流水线构建：`navbot_description` 提供底盘、双驱动轮、前万向球与三类传感器（2D 激光雷达、相机、IMU）的 xacro 与 Gazebo 插件配置；`navbot_gazebo` 提供 12 × 9 m 实验室场景、Nav2 / EKF / slam_toolbox 参数与 `sim / slam / navigate / verify` 四条 launch 链；`navbot_patrol` 基于 `nav2_simple_commander.BasicNavigator` 执行多航点巡检，航点与超时全部来自 YAML。TF 采用「每条边单一发布者」设计：`odom → base_footprint` 由 EKF 或差速插件二选一，`map → odom` 只由定位节点发布。
+整个系统按「模型 → 仿真 → 建图 → 定位 → 导航 → 任务」流水线构建：`navbot_description` 提供底盘、双驱动轮、前万向球与三类传感器（2D 激光雷达、相机、IMU）的 xacro 与 Gazebo 插件配置；`navbot_gazebo` 提供 30.18 × 50.22 m 仓库场景（基于 nav2 官方 warehouse 地图反推）、Nav2 / EKF / slam_toolbox 参数与 `sim / slam / navigate / verify` 四条 launch 链；`navbot_patrol` 基于 `nav2_simple_commander.BasicNavigator` 执行多航点巡检，航点与超时全部来自 YAML。TF 采用「每条边单一发布者」设计：`odom → base_footprint` 由 EKF 或差速插件二选一，`map → odom` 只由定位节点发布。
 
 **核心特性：**
 
@@ -14,7 +14,7 @@ navbot 是一个基于 **ROS 2 Humble**、**Gazebo Classic 11** 与 **Nav2** 的
 - **几何驱动参数**：惯量由 `m/12(a²+b²)`、`½mr²`、`2/5mr²` 在 xacro 内推导；轮心高度由 `wheel_radius - base_z` 反推，改轮径自动保持触地；Nav2 的 `robot_radius`、膨胀半径、加减速度上限全部由模型尺寸算出并写明换算式。
 - **TF 单一所有权**：`publish_odom_tf` 做成 xacro 参数，launch 探测 `robot_localization` 是否安装自动切换发布方，工程内不存在任何静态 `map→odom`。
 - **传感器真实建模**：540 线 ±157°、量程 0.15–8.0 m、σ=10 mm 高斯测距噪声的雷达 + 200 Hz IMU，使 EKF 有真实输入而非空转。
-- **任务层配置化**：9 点 / 29.58 m 航线写在 `waypoints.yaml`，换现场不改代码；服务就绪上限、任务总超时取消、结果分类、非 0 退出码，便于脚本与 CI 判定。
+- **任务层配置化**：10 点 / 105.03 m 航线写在 `waypoints.yaml`，换现场不改代码；服务就绪上限、任务总超时取消、结果分类、非 0 退出码，便于脚本与 CI 判定。
 - **可复验**：TF 唯一父帧、话题与发布者数量、轮距标定拟合、端到端联调各有专用脚本，README 每个数字都能现场复跑。
 - **一条命令拉起**：`sim / slam / navigate / patrol` 四条 launch 复用同一个仿真底座，不重复维护。
 
@@ -24,9 +24,9 @@ navbot 是一个基于 **ROS 2 Humble**、**Gazebo Classic 11** 与 **Nav2** 的
 
 ```
                   ┌────────────────────────────────────────────────────┐
-  实验室场景 ──▶   │  Gazebo Classic 11（navbot_gazebo/worlds/lab.world）│
-                  │  · 12×9 m，两道隔断，门洞 1.4 m / 2.0 m             │
-                  │  · 5 个障碍物（货箱/长凳/立柱/托盘/圆桶）           │
+  仓库场景 ──▶   │  Gazebo Classic 11（navbot_gazebo/worlds/warehouse.world）│
+                  │  · 30.18×50.22 m，30 个实体，南墙开口 7.4 m            │
+                  │  · 4 根大货架 + 21 个护栏/立柱，几何由地图反推         │
                   └──────────────────┬─────────────────────────────────┘
                                      │ /odom /scan /imu/data  ← 差速插件 + 传感器插件
                                      ▼
@@ -99,7 +99,8 @@ navbot/
     │   │   └── gazebo.launch.py          # 空世界跑模型与传感器
     │   └── rviz/model.rviz
     ├── navbot_gazebo/                    # 仿真与配置层（ament_cmake）
-    │   ├── worlds/lab.world              # 12×9 m 场景（手写显式坐标）
+    │   ├── worlds/warehouse.world        # 30.18×50.22 m 仓库（由地图反推）
+    │   ├── worlds/lab.world              # 12×9 m 实验室（备用场景）
     │   ├── launch/
     │   │   ├── sim.launch.py             # 唯一「起仿真」入口
     │   │   ├── slam.launch.py            # = sim + slam_toolbox
@@ -110,7 +111,8 @@ navbot/
     │   │   ├── ekf.yaml                  # odom + IMU 融合
     │   │   ├── slam.yaml                 # slam_toolbox 建图参数
     │   │   └── sim.rviz / nav.rviz       # 无图 / 有图两套 RViz 配置
-    │   ├── maps/lab_map.pgm|.yaml        # 脚本按场景坐标生成
+    │   ├── maps/nav2_warehouse/          # nav2 官方 warehouse 地图（默认）
+    │   ├── maps/lab_map.pgm|.yaml        # 实验室地图（备用）
     │   └── tools/verify_odometry.py      # 轮距标定校验节点
     └── navbot_patrol/                    # 任务层（ament_python）
         ├── config/waypoints.yaml         # 航点、超时、初始位姿
@@ -129,7 +131,7 @@ navbot/
 | 定位话题 | `/map`、`/amcl_pose`、`/initialpose`、`/plan`、`/local_plan` | map_server / AMCL / bt_navigator |
 | 动作接口 | `/navigate_to_pose`、`/follow_waypoints` | `nav2_simple_commander.BasicNavigator` 封装 |
 | 仿真实体 | `navbot` | `spawn_entity.py -entity navbot` |
-| 场景与地图 | `worlds/lab.world` ↔ `maps/lab_map.{pgm,yaml}` | 坐标一一对应，出生点在世界原点 |
+| 场景与地图 | `worlds/warehouse.world` ↔ `maps/nav2_warehouse/warehouse.{pgm,yaml}` | 坐标一一对应，出生点在世界原点 |
 | 巡检配置 | `config/waypoints.yaml` 的 `initial_pose / task / waypoints` | 航点字段 `name x y yaw_deg` |
 
 ## 环境依赖
@@ -213,7 +215,7 @@ ros2 launch navbot_gazebo navigate.launch.py
 ros2 launch navbot_patrol patrol.launch.py
 ```
 
-启动后应看到：Gazebo 中出现机器人与实验室场景，RViz 以 `map` 为参考系显示栅格地图、代价地图与全局路径，巡检终端打印 `航点 9 个，航线 29.58 m` 与逐点进度。
+启动后应看到：Gazebo 中出现机器人与仓库场景，RViz 以 `map` 为参考系显示栅格地图、代价地图与全局路径，巡检终端打印 `航点 10 个，航线 105.03 m` 与逐点进度。
 
 ### 方式二：自己建图（不用仓库里的离线地图）
 
@@ -266,22 +268,39 @@ ros2 launch navbot_gazebo verify.launch.py
 | `headless` | launch 参数 | false | 不起 gzclient（无图形环境） |
 | `spawn_timeout` | launch 参数 | 240 s | 等待 `/spawn_entity` 服务，慢机器需放宽 |
 | `robot_radius` | `params/nav2_params.yaml` | 0.21 m | 外接圆 √(0.16²+0.12²)=0.20，相机前伸 0.205 |
-| `inflation_radius` | `params/nav2_params.yaml` | 0.45 m | 需小于最窄门洞的一半余量（门 1.4 m） |
+| `inflation_radius` | `params/nav2_params.yaml` | 0.45 m | 场景最窄通道约 4.95 m（S3 与 S4 之间），余量充裕 |
 | `max_vel_x / min_vel_x` | `params/nav2_params.yaml` | 0.30 / −0.12 m/s | 允许倒车脱困 |
 | `acc_lim_x` | `params/nav2_params.yaml` | 0.5 m/s² | 上限来自插件 `max_wheel_acceleration 15 × 0.036 = 0.54` |
-| `laser_max_range` | `params/nav2_params.yaml` | 8.0 m | 与雷达量程一致（AMCL + 两个 costmap） |
+| `laser_max_range` | `params/nav2_params.yaml` | 7.5 m | 与雷达量程 8.0 m 留余量，避免边界光束干扰 |
+| `z_hit / z_rand` | `params/nav2_params.yaml` | 0.9 / 0.03 | 原来 0.5 / 0.5 会让粒子在大场景里发散 |
+| `sigma_hit` | `params/nav2_params.yaml` | 0.12 m | 地图 0.03 m 分辨率下提高打分明锐度 |
+| `max_beams` | `params/nav2_params.yaml` | 90 | 540 线雷达，过稀会导致匹配不足 |
+| `min/max_particles` | `params/nav2_params.yaml` | 800 / 4000 | 30×50 m 场景需更多粒子 |
 | `xy_goal_tolerance` | `params/nav2_params.yaml` | 0.20 m | 到点判定容差 |
 | EKF `odom0_config` | `config/ekf.yaml` | 仅 vx + yaw_rate | 差速车 vy 不可测，不要喂位姿 |
 | EKF `imu0_relative` | `config/ekf.yaml` | true | 以开机第一帧为零点，避免把仿真绝对航向当真值 |
 | 建图分辨率 | `config/slam.yaml` | 0.05 m | 与 `nav2_params` 的 costmap 分辨率保持一致 |
-| 航点与超时 | `navbot_patrol/config/waypoints.yaml` | 9 点 / 29.58 m，`timeout_sec 420` | `--waypoints` > `NAVBOT_WAYPOINTS` > 包内默认 |
+| 航点与超时 | `navbot_patrol/config/waypoints.yaml` | 10 点 / 105.03 m，`timeout_sec 480` | `--waypoints` > `NAVBOT_WAYPOINTS` > 包内默认 |
 | `task.loop` | 同上 | 1 | 整条航线重复轮数 |
 
 ## 验证状态
 
-**已验证**：三包 `colcon build` 全绿；7 个 launch 构造通过；`check_urdf` 通过且 TF 树形状与上文一致；轮心 z=0.036、万向球 z=0.018 均正好触地；xacro 四个参数矩阵生效；headless 与窗口两种模式均成功 spawn；`/odom /scan /imu/data /cmd_vel /map /plan` 正常；Nav2 15 个进程启动、两个动作服务端在位；巡检节点读取 9 点 / 29.58 m 航线并进入等待。
+**已在 WSL2 Ubuntu 22.04 + ROS 2 Humble + Gazebo Classic 11 实跑验证**：
 
-**受环境限制未完成**：完整 9 点巡检走完、SLAM 实跑建图与轮距斜率 k≈1 实测——在无 GPU 直通的 WSL2 上物理步进明显低于实时，需要几十分钟到数小时的墙上时间；在原生 Linux 或带 GPU 的环境正常。
+| 项 | 结果 |
+|---|---|
+| 三包 `colcon build` | 全绿（5.53 s） |
+| 场景加载 | `gzserver` 加载 `warehouse.world`，机器人成功 spawn |
+| Nav2 | 11 个进程，`/amcl` 与 `/bt_navigator` 均 `active [3]` |
+| 话题 / 动作 | 6 个关键话题 + 2 个动作服务端全部在位 |
+| `/scan` | 9.96 Hz，540 线 ±157°，量程 0.15–8.0 m，有效 195 束 |
+| AMCL 跟踪 | 误差 0.263 m，σx 0.250，**PASS** |
+| **完整巡检** | **10/10 航点全到达，105.03 m，440.3 s，0 失败** |
+| 终点回位精度 | 误差 0.135 m（容差 0.20 m） |
+
+两次独立复跑结果一致（434.4 s / 0.121 m 与 440.3 s / 0.135 m）。
+
+**未验证**：带窗口（gzclient）模式、`slam.launch.py` 建图链路、`verify.launch.py` 轮距标定、`selftest.sh` 阶段 2、多轮循环（`task.loop > 1`）、相机链路（本次以 `enable_camera:=false` 启动）。新场景的完整参数与校验数据见 `navbot_gazebo/WAREHOUSE_SCENE.md`。
 
 ## 常见问题
 

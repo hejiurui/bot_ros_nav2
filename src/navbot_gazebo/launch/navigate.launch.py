@@ -26,7 +26,9 @@ def generate_launch_description():
     nav2_bringup = get_package_share_directory('nav2_bringup')
 
     nav2_params = os.path.join(pkg_sim, 'params', 'nav2_params.yaml')
-    default_map = os.path.join(pkg_sim, 'maps', 'lab_map.yaml')
+    default_map = os.path.join(pkg_sim, 'maps', 'nav2_warehouse', 'warehouse.yaml')
+    if not os.path.exists(default_map):
+        default_map = os.path.join(pkg_sim, 'maps', 'lab_map.yaml')
     has_map = os.path.exists(default_map)
     rviz_config = os.path.join(pkg_sim, 'config',
                                'nav.rviz' if has_map else 'sim.rviz')
